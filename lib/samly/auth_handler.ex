@@ -54,7 +54,7 @@ defmodule Samly.AuthHandler do
     |> send_resp(200, EEx.eval_string(@sso_init_resp_template, opts))
   end
 
-  def send_signin_req(conn) do
+  def send_signin_req(%{host: host} = conn) do
     %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
     %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
@@ -76,7 +76,7 @@ defmodule Samly.AuthHandler do
         |> configure_session(renew: true)
         |> put_session("relay_state", relay_state)
         |> put_session("idp_id", idp_id)
-        |> put_session("target_url", target_url)
+        |> put_resp_cookie("target_url", target_url, domain: strip_subdomains(host, 1))
         |> send_saml_request(
           idp_signin_url,
           idp.use_redirect_for_req,
@@ -91,6 +91,7 @@ defmodule Samly.AuthHandler do
     #     conn |> send_resp(500, "request_failed")
   end
 
+  
   def send_signout_req(conn) do
     %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
     %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec} = idp
@@ -130,5 +131,11 @@ defmodule Samly.AuthHandler do
     #   error ->
     #     Logger.error("#{inspect error}")
     #     conn |> send_resp(500, "request_failed")
+  end
+  
+  defp strip_subdomains(host, n_of_subdomains) do
+    host
+    |> String.split(".", parts: n_of_subdomains + 1)
+    |> List.last
   end
 end

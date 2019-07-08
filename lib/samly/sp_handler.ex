@@ -35,6 +35,8 @@ defmodule Samly.SPHandler do
     relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
 
     with {:ok, assertion} <- Helper.decode_idp_auth_resp(sp, saml_encoding, saml_response),
+         target_url <- auth_target_url(conn, assertion, relay_state),
+         {:redirect?, :no_redirection} <- {:redirect?, maybe_redirect?(conn, target_url)},
          :ok <- validate_authresp(conn, assertion, relay_state),
          assertion = %Assertion{assertion | idp_id: idp_id},
          conn = conn |> put_private(:samly_assertion, assertion),
@@ -46,13 +48,13 @@ defmodule Samly.SPHandler do
       nameid = assertion.subject.name
       assertion_key = {idp_id, nameid}
       conn = State.put_assertion(conn, assertion_key, assertion)
-      target_url = auth_target_url(conn, assertion, relay_state)
 
       conn
       |> configure_session(renew: true)
       |> put_session("samly_assertion_key", assertion_key)
       |> redirect(302, target_url)
     else
+      {:redirect?, conn} -> conn
       {:halted, conn} -> conn
       {:error, reason} -> conn |> send_resp(403, "access_denied #{inspect(reason)}")
       _ -> conn |> send_resp(403, "access_denied")
@@ -62,6 +64,18 @@ defmodule Samly.SPHandler do
     #   error ->
     #     Logger.error("#{inspect error}")
     #     conn |> send_resp(500, "request_failed")
+  end
+
+  defp maybe_redirect?(%{host: host} = conn, target_url) do
+    %URI{host: target_host} = URI.parse(target_url)
+    if target_host != host do
+      current_uri = URI.parse(Phoenix.Router.Helpers.url(Samly.Router, conn) <> conn.request_path)
+      %URI{host: target_host} = URI.parse(target_url)
+      target_uri = %{current_uri | host: target_host}
+      redirect(conn, 307, URI.to_string(target_uri))
+    else
+      :no_redirection
+    end
   end
 
   # IDP-initiated flow auth response
@@ -89,7 +103,7 @@ defmodule Samly.SPHandler do
     %IdpData{id: idp_id} = conn.private[:samly_idp]
     rs_in_session = get_session(conn, "relay_state")
     idp_id_in_session = get_session(conn, "idp_id")
-    url_in_session = get_session(conn, "target_url")
+    url_in_session = conn.cookies["target_url"]
 
     cond do
       rs_in_session == nil || rs_in_session != relay_state ->
@@ -116,7 +130,7 @@ defmodule Samly.SPHandler do
   defp auth_target_url(_conn, %{subject: %{in_response_to: ""}}, url), do: url
 
   defp auth_target_url(conn, _assertion, _relay_state) do
-    get_session(conn, "target_url") || "/"
+    conn.cookies["target_url"] || "/"
   end
 
   def handle_logout_response(conn) do
@@ -131,7 +145,7 @@ defmodule Samly.SPHandler do
     with {:ok, _payload} <- Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response),
          ^relay_state when relay_state != nil <- get_session(conn, "relay_state"),
          ^idp_id <- get_session(conn, "idp_id"),
-         target_url when target_url != nil <- get_session(conn, "target_url") do
+         target_url when target_url != nil <- conn.cookies["target_url"] do
       conn
       |> configure_session(drop: true)
       |> redirect(302, target_url)
