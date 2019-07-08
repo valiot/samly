@@ -280,7 +280,14 @@ defmodule Samly.IdpData do
 
     case entity_md_xml do
       nil ->
-        {:error, :entity_not_found}
+        Logger.warn("[Samly] Entity #{inspect(entityID)} not found")
+        {:ok, idp_data}
+      {:error, :entity_not_found} = err ->
+        Logger.warn("[Samly] Entity not found due to configuration error")
+        {:ok, idp_data}
+      {:error, reason} ->
+        Logger.warn("[Samly] Parsing error due to: #{inspect(reason)}")
+        {:ok, idp_data}
       _ ->
         signing_certs = get_signing_certs_in_idp(entity_md_xml)
 
