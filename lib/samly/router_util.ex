@@ -100,7 +100,7 @@ defmodule Samly.RouterUtil do
 
   def redirect(conn, status_code, dest) do
     conn
-    |> Conn.put_resp_header("location", URI.encode(dest))
+    |> Conn.put_resp_header("location", dest)
     |> Conn.send_resp(status_code, "")
     |> Conn.halt()
   end
