@@ -102,6 +102,7 @@ defmodule Samly.AuthHandler do
       idp = conn.private[:samly_idp]
 
     %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec} = idp
+    %IdpData{pre_logout_pipeline: pipeline} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
     target_url = conn.private[:samly_target_url] || "/"
@@ -119,6 +120,7 @@ defmodule Samly.AuthHandler do
             use_redirect?: idp.use_redirect_for_logout_req
           )
 
+        conn = pipethrough(conn, pipeline)
         conn = State.delete_assertion(conn, assertion_key)
         relay_state = State.gen_id()
 
@@ -146,6 +148,9 @@ defmodule Samly.AuthHandler do
     #     Logger.error("#{inspect error}")
     #     conn |> send_resp(500, "request_failed")
   end
+
+  defp pipethrough(conn, nil), do: conn
+  defp pipethrough(conn, pipeline), do: pipeline.call(conn)
 
   defp strip_subdomains(host, n_of_subdomains) do
     host
