@@ -68,6 +68,7 @@ defmodule Samly.SPHandler do
 
   defp maybe_redirect?(%{host: host} = conn, target_url) do
     %URI{host: target_host} = URI.parse(target_url)
+
     if target_host != host do
       current_uri = URI.parse(Phoenix.Router.Helpers.url(Samly.Router, conn) <> conn.request_path)
       %URI{host: target_host} = URI.parse(target_url)

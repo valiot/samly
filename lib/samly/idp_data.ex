@@ -77,13 +77,13 @@ defmodule Samly.IdpData do
   @signing_keys_selector ~x"//#{@entdesc}/#{@idpdesc}/#{@keydesc}[@use != 'encryption']"l
   @enc_keys_selector ~x"//#{@entdesc}/#{@idpdesc}/#{@keydesc}[@use = 'encryption']"l
 
-
   # These functions work on EntityDescriptor element
   @sso_redirect_url_selector ~x"/#{@entdesc}/#{@idpdesc}/#{@ssos}[@Binding = '#{@redirect}']/@Location"s
   @sso_post_url_selector ~x"/#{@entdesc}/#{@idpdesc}/#{@ssos}[@Binding = '#{@post}']/@Location"s
   @slo_redirect_url_selector ~x"/#{@entdesc}/#{@idpdesc}/#{@slos}[@Binding = '#{@redirect}']/@Location"s
   @slo_post_url_selector ~x"/#{@entdesc}/#{@idpdesc}/#{@slos}[@Binding = '#{@post}']/@Location"s
-  @nameid_format_selector ~x"/#{@entdesc}/#{@idpdesc}/#{@nameid}/text()[1]"s # TODO How to deal with multiple nameid formats?
+  # TODO How to deal with multiple nameid formats?
+  @nameid_format_selector ~x"/#{@entdesc}/#{@idpdesc}/#{@nameid}/text()[1]"s
   @signing_keys_in_idp_selector ~x"./#{@idpdesc}/#{@keydesc}[@use != 'encryption']"l
   @cert_selector ~x"./ds:KeyInfo/ds:X509Data/ds:X509Certificate/text()"s
 
@@ -277,34 +277,35 @@ defmodule Samly.IdpData do
 
     entity_md_xml = get_entity_descriptor(md_xml, entityID)
 
-    
-
     case entity_md_xml do
       nil ->
         Logger.warn("[Samly] Entity #{inspect(entityID)} not found")
         {:ok, idp_data}
+
       {:error, :entity_not_found} = err ->
         Logger.warn("[Samly] Entity not found due to configuration error")
         {:ok, idp_data}
+
       {:error, reason} ->
         Logger.warn("[Samly] Parsing error due to: #{inspect(reason)}")
         {:ok, idp_data}
+
       _ ->
         signing_certs = get_signing_certs_in_idp(entity_md_xml)
 
         {:ok,
-          %IdpData{
-            idp_data
-            | entity_id: entityID,
-            signed_requests: get_req_signed(md_xml),
-            certs: signing_certs,
-            fingerprints: idp_cert_fingerprints(signing_certs),
-            sso_redirect_url: get_sso_redirect_url(entity_md_xml),
-            sso_post_url: get_sso_post_url(entity_md_xml),
-            slo_redirect_url: get_slo_redirect_url(entity_md_xml),
-            slo_post_url: get_slo_post_url(entity_md_xml),
-            nameid_format: get_nameid_format(entity_md_xml)
-          }}
+         %IdpData{
+           idp_data
+           | entity_id: entityID,
+             signed_requests: get_req_signed(md_xml),
+             certs: signing_certs,
+             fingerprints: idp_cert_fingerprints(signing_certs),
+             sso_redirect_url: get_sso_redirect_url(entity_md_xml),
+             sso_post_url: get_sso_post_url(entity_md_xml),
+             slo_redirect_url: get_slo_redirect_url(entity_md_xml),
+             slo_post_url: get_slo_post_url(entity_md_xml),
+             nameid_format: get_nameid_format(entity_md_xml)
+         }}
     end
   end
 
@@ -389,7 +390,7 @@ defmodule Samly.IdpData do
     )
   end
 
- @spec get_entity_id(:xmlElement) :: binary()
+  @spec get_entity_id(:xmlElement) :: binary()
   def get_entity_id(md_elem) do
     md_elem |> xpath(@entity_id_selector |> add_ns()) |> hd() |> String.trim()
   end
@@ -405,8 +406,8 @@ defmodule Samly.IdpData do
   @spec get_req_signed(:xmlElement) :: binary()
   def get_req_signed(md_elem), do: get_data(md_elem, @req_signed_selector)
 
-  #@spec get_signing_certs(:xmlElement) :: certs()
-  #def get_signing_certs(md_elem), do: get_certs(md_elem, signing_keys_selector())
+  # @spec get_signing_certs(:xmlElement) :: certs()
+  # def get_signing_certs(md_elem), do: get_certs(md_elem, signing_keys_selector())
 
   def get_signing_certs_in_idp(md_elem), do: get_certs(md_elem, @signing_keys_in_idp_selector)
 
@@ -460,11 +461,11 @@ defmodule Samly.IdpData do
   @spec get_entity_descriptor(:xmlElement, entityID :: binary()) :: :xmlElement | nil
   defp get_entity_descriptor(md_xml, entityID) do
     selector = entity_by_id_selector(entityID) |> add_ns()
+
     try do
       SweetXml.xpath(md_xml, selector)
     rescue
       _ -> {:error, :entity_not_found}
     end
   end
-
-end 
+end

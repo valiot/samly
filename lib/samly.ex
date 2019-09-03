@@ -64,5 +64,4 @@ defmodule Samly do
     conn
     |> Conn.delete_session("samly_assertion_key")
   end
-
 end

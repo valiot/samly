@@ -60,12 +60,17 @@ defmodule Samly.Helper do
 
     case get_binding_type(opts) do
       {:ok, binding_type} ->
-        xml_frag = :esaml_sp.generate_logout_request(idp_signout_url,
-          session_index,
-          subject_rec,
-          sp,
-          binding_type: binding_type)
+        xml_frag =
+          :esaml_sp.generate_logout_request(
+            idp_signout_url,
+            session_index,
+            subject_rec,
+            sp,
+            binding_type: binding_type
+          )
+
         {:ok, {idp_signout_url, xml_frag}}
+
       error ->
         error
     end
@@ -76,6 +81,7 @@ defmodule Samly.Helper do
     use_redirect? = Keyword.get(opts, :use_redirect?)
     redirect = Keyword.get(opts, :slo_redirect)
     post = Keyword.get(opts, :slo_post)
+
     if use_redirect? do
       if redirect do
         {:ok, :redirect}

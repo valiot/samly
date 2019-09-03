@@ -292,6 +292,7 @@ defmodule SamlyIdpDataTest do
 
   test "Federation metadata can be provided for an idp along with its entityID", %{sps: sps} do
     idp_data = IdpData.load_provider(@federation_idp_config1, sps)
+
     %IdpData{
       entity_id: entity_id,
       sso_post_url: sso_post_url,
