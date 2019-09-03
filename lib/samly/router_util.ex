@@ -82,15 +82,16 @@ defmodule Samly.RouterUtil do
     end
   end
 
-  def send_saml_request(conn, idp_url, use_redirect?, signed_xml_payload, relay_state) do
+  def send_saml_request(conn, idp_url, use_redirect?, xml_payload, relay_state, opts \\ []) do
     if use_redirect? do
+      redirect_opts = [key: opts |> Keyword.get(:sp) |> Esaml.esaml_sp(:key)]
       url =
-        :esaml_binding.encode_http_redirect(idp_url, signed_xml_payload, :undefined, relay_state)
+        :esaml_binding.encode_http_redirect(idp_url, xml_payload, :undefined, relay_state, redirect_opts)
 
       conn |> redirect(302, url)
     else
       nonce = conn.private[:samly_nonce]
-      resp_body = :esaml_binding.encode_http_post(idp_url, signed_xml_payload, relay_state, nonce)
+      resp_body = :esaml_binding.encode_http_post(idp_url, xml_payload, relay_state, nonce)
 
       conn
       |> Conn.put_resp_header("content-type", "text/html")

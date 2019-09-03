@@ -55,10 +55,40 @@ defmodule Samly.Helper do
     {idp_signin_url, xml_frag}
   end
 
-  def gen_idp_signout_req(sp, idp_metadata, subject_rec, session_index) do
+  def gen_idp_signout_req(sp, idp_metadata, subject_rec, session_index, opts) do
     idp_signout_url = Esaml.esaml_idp_metadata(idp_metadata, :logout_location)
-    xml_frag = :esaml_sp.generate_logout_request(idp_signout_url, session_index, subject_rec, sp)
-    {idp_signout_url, xml_frag}
+
+    case get_binding_type(opts) do
+      {:ok, binding_type} ->
+        xml_frag = :esaml_sp.generate_logout_request(idp_signout_url,
+          session_index,
+          subject_rec,
+          sp,
+          binding_type: binding_type)
+        {:ok, {idp_signout_url, xml_frag}}
+      error ->
+        error
+    end
+  end
+
+  defp get_binding_type(opts) do
+    # TODO refactor
+    use_redirect? = Keyword.get(opts, :use_redirect?)
+    redirect = Keyword.get(opts, :slo_redirect)
+    post = Keyword.get(opts, :slo_post)
+    if use_redirect? do
+      if redirect do
+        {:ok, :redirect}
+      else
+        {:error, :no_binding}
+      end
+    else
+      if post do
+        {:ok, :post}
+      else
+        {:error, :no_binding}
+      end
+    end
   end
 
   def gen_idp_signout_resp(sp, idp_metadata, signout_status) do

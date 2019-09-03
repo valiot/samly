@@ -119,6 +119,7 @@ defmodule Samly.IdpData do
     |> set_pipeline(opts_map)
     |> set_allowed_target_urls(opts_map)
     |> set_boolean_attr(opts_map, :use_redirect_for_req)
+    |> set_boolean_attr(opts_map, :use_redirect_for_logout_req)
     |> set_boolean_attr(opts_map, :sign_requests)
     |> set_boolean_attr(opts_map, :sign_metadata)
     |> set_boolean_attr(opts_map, :signed_assertion_in_resp)

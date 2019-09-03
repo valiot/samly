@@ -5,7 +5,7 @@ defmodule Samly.AuthHandler do
   import Plug.Conn
   alias Samly.{Assertion, IdpData, Helper, State, Subject}
 
-  import Samly.RouterUtil, only: [ensure_sp_uris_set: 2, send_saml_request: 5, redirect: 3]
+  import Samly.RouterUtil, only: [ensure_sp_uris_set: 2, send_saml_request: 5, send_saml_request: 6, redirect: 3]
 
   @sso_init_resp_template """
   <!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"
@@ -55,7 +55,7 @@ defmodule Samly.AuthHandler do
   end
 
   def send_signin_req(%{host: host} = conn) do
-    %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
+    %IdpData{id: idp_id, sso_post_url: sso_post, sso_redirect_url: sso_redirect} = idp = conn.private[:samly_idp]
     %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
@@ -81,7 +81,8 @@ defmodule Samly.AuthHandler do
           idp_signin_url,
           idp.use_redirect_for_req,
           req_xml_frag,
-          relay_state
+          relay_state,
+          sp: sp, sso_post: sso_post, sso_redirect: sso_redirect
         )
     end
 
@@ -93,7 +94,7 @@ defmodule Samly.AuthHandler do
 
   
   def send_signout_req(conn) do
-    %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
+    %IdpData{id: idp_id, slo_post_url: slo_post, slo_redirect_url: slo_redirect} = idp = conn.private[:samly_idp]
     %IdpData{esaml_idp_rec: idp_rec, esaml_sp_rec: sp_rec} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
@@ -105,8 +106,9 @@ defmodule Samly.AuthHandler do
         session_index = Map.get(authn, "session_index", "")
         subject_rec = Subject.to_rec(subject)
 
-        {idp_signout_url, req_xml_frag} =
-          Helper.gen_idp_signout_req(sp, idp_rec, subject_rec, session_index)
+        {:ok, {idp_signout_url, req_xml_frag}} =
+          Helper.gen_idp_signout_req(sp, idp_rec, subject_rec, session_index,
+            slo_post: slo_post, slo_redirect: slo_redirect, use_redirect?: idp.use_redirect_for_logout_req)
 
         conn = State.delete_assertion(conn, assertion_key)
         relay_state = State.gen_id()
@@ -118,9 +120,10 @@ defmodule Samly.AuthHandler do
         |> delete_session("samly_assertion_key")
         |> send_saml_request(
           idp_signout_url,
-          idp.use_redirect_for_req,
+          idp.use_redirect_for_logout_req,
           req_xml_frag,
-          relay_state
+          relay_state,
+          sp: sp, slo_post: slo_post, slo_redirect: slo_redirect
         )
 
       _ ->
