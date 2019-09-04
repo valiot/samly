@@ -138,12 +138,15 @@ defmodule Samly.SPHandler do
     %IdpData{id: idp_id} = idp = conn.private[:samly_idp]
     %IdpData{esaml_idp_rec: _idp_rec, esaml_sp_rec: sp_rec} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
+    sp = Esaml.esaml_sp(sp, trusted_fingerprints: :any) # TODO
 
     saml_encoding = conn.body_params["SAMLEncoding"]
     saml_response = conn.body_params["SAMLResponse"]
     relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
 
-    with {:ok, _payload} <- Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response),
+    with target_url <- auth_target_url(conn, nil, relay_state),
+         {:redirect?, :no_redirection} <- {:redirect?, maybe_redirect?(conn, target_url)},
+         {:ok, _payload} <- Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response),
          ^relay_state when relay_state != nil <- get_session(conn, "relay_state"),
          ^idp_id <- get_session(conn, "idp_id"),
          target_url when target_url != nil <- conn.cookies["target_url"] do
@@ -151,6 +154,7 @@ defmodule Samly.SPHandler do
       |> configure_session(drop: true)
       |> redirect(302, target_url)
     else
+      {:redirect?, conn} -> conn
       error -> conn |> send_resp(403, "invalid_request #{inspect(error)}")
     end
 
