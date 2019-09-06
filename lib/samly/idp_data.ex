@@ -200,7 +200,12 @@ defmodule Samly.IdpData do
   defp set_pipelines(%IdpData{} = idp_data, %{} = opts_map) do
     pipeline = Map.get(opts_map, :pre_session_create_pipeline)
     logout_pipeline = Map.get(opts_map, :pre_logout_pipeline)
-    %IdpData{idp_data | pre_session_create_pipeline: pipeline, pre_logout_pipeline: logout_pipeline}
+
+    %IdpData{
+      idp_data
+      | pre_session_create_pipeline: pipeline,
+        pre_logout_pipeline: logout_pipeline
+    }
   end
 
   defp set_allowed_target_urls(%IdpData{} = idp_data, %{} = opts_map) do
