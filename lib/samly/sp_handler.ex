@@ -143,25 +143,37 @@ defmodule Samly.SPHandler do
     saml_encoding = conn.body_params["SAMLEncoding"]
     saml_response = conn.body_params["SAMLResponse"]
     relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
+    
+    redirection_url = URI.decode_www_form(conn.cookies["target_url"])
 
-    with target_url <- auth_target_url(conn, nil, relay_state),
-         {:redirect?, :no_redirection} <- {:redirect?, maybe_redirect?(conn, target_url)},
-         {:ok, _payload} <- Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response),
+    with {:redirect?, :no_redirection} <- {:redirect?, maybe_redirect?(conn, redirection_url)},
+         :ok <- assert_correct_response(sp, saml_encoding, saml_response),
          ^relay_state when relay_state != nil <- get_session(conn, "relay_state"),
          ^idp_id <- get_session(conn, "idp_id"),
-         target_url when target_url != nil <- conn.cookies["target_url"] do
+         target_url when target_url != nil <- get_session(conn, "target_url") do
       conn
       |> configure_session(drop: true)
-      |> redirect(302, target_url)
+      |> redirect(303, target_url)
     else
       {:redirect?, conn} -> conn
-      error -> conn |> send_resp(403, "invalid_request #{inspect(error)}")
+      error ->
+        conn
+        |> send_resp(403, "invalid_request #{inspect(error)}")
     end
 
     # rescue
     #   error ->
     #     Logger.error("#{inspect error}")
     #     conn |> send_resp(500, "request_failed")
+  end
+
+  def assert_correct_response(sp, saml_encoding, saml_response) do
+    case Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response) do
+      {:ok, _} -> :ok
+      # Below is the case where the user is already logged out.
+      {:error, :Requester} -> :ok
+      e -> e
+    end
   end
 
   # non-ui logout request from IDP

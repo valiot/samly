@@ -42,6 +42,7 @@ defmodule Samly.AuthHandler do
     import Plug.CSRFProtection, only: [get_csrf_token: 0]
 
     target_url = conn.private[:samly_target_url] || "/"
+    target_url = conn.params["target_url"]
 
     opts = [
       nonce: conn.private[:samly_nonce],
@@ -105,7 +106,8 @@ defmodule Samly.AuthHandler do
     %IdpData{pre_logout_pipeline: pipeline} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
-    target_url = conn.private[:samly_target_url] || "/"
+    target_url = conn.params["target_url"] |> URI.decode_www_form()
+
     assertion_key = get_session(conn, "samly_assertion_key")
 
     case State.get_assertion(conn, assertion_key) do
@@ -150,7 +152,7 @@ defmodule Samly.AuthHandler do
   end
 
   defp pipethrough(conn, nil), do: conn
-  defp pipethrough(conn, pipeline), do: pipeline.call(conn)
+  defp pipethrough(conn, pipeline), do: pipeline.call(conn, [])
 
   defp strip_subdomains(host, n_of_subdomains) do
     host
